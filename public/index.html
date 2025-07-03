@@ -1,193 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vani.liveCall</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      background: #f2f2f2;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .container {
-      background: white;
-      margin-top: 30px;
-      padding: 30px 20px;
-      border-radius: 16px;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-      width: 90%;
-      max-width: 800px;
-    }
-
-    h2 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-
-    input[type="text"] {
-      padding: 10px;
-      width: 60%;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      margin-bottom: 15px;
-      font-size: 16px;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    .join-btn {
-      background-color: #3498db;
-      color: white;
-    }
-
-    .join-btn:hover {
-      background-color: #2980b9;
-    }
-
-    .leave-btn {
-      background-color: #e74c3c;
-      color: white;
-    }
-
-    .leave-btn:hover {
-      background-color: #c0392b;
-    }
-
-    .videos {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-
-    video {
-      width: 45%;
-      max-width: 320px;
-      border-radius: 10px;
-      background: black;
-    }
-
-    @media (max-width: 768px) {
-      .videos {
-        flex-direction: column;
-        align-items: center;
-      }
-
-      video {
-        width: 80%;
-      }
-    }
-  </style>
+  <title>Vani LiveCall</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <div class="container">
-    <h2>Vani.liveCall</h2>
-    <input type="text" id="roomInput" placeholder="Enter Room ID" />
-    <div>
-      <button class="btn join-btn" onclick="joinRoom()">Join Room</button>
-      <button class="btn leave-btn" onclick="leaveRoom()">Leave Call</button>
-    </div>
+  <div class="app">
+    <header class="top-bar">
+      <h1>📞 Vani LiveCall</h1>
+      <span id="roomLabel">Room: <span id="roomName">-</span></span>
+    </header>
 
-    <div class="videos">
-      <video id="localVideo" autoplay muted playsinline></video>
-      <video id="remoteVideo" autoplay playsinline></video>
-    </div>
+    <main class="videos" id="videosArea">
+      <div class="video-box" id="localBox">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <span class="label">You</span>
+      </div>
+      <div class="video-box" id="remoteBox">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <span class="label">Remote</span>
+      </div>
+    </main>
+
+    <footer class="controls">
+      <input type="text" id="roomInput" placeholder="Enter Room ID" />
+      <button class="btn primary" onclick="joinRoom()">Join</button>
+      <button class="btn danger" onclick="leaveRoom()">Leave</button>
+      <button class="btn" id="micBtn" onclick="toggleMic()">🎤</button>
+      <button class="btn" id="camBtn" onclick="toggleCamera()">📷</button>
+      <button class="btn" id="screenBtn" onclick="toggleScreen()">🖥️</button>
+      <button class="btn" id="focusBtn" onclick="toggleFocus()">🎯 Focus</button>
+
+    </footer>
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-    const socket = io(); // Connect to backend server
-
-    let localStream;
-    let peerConnection;
-    const roomInput = document.getElementById('roomInput');
-    const localVideo = document.getElementById('localVideo');
-    const remoteVideo = document.getElementById('remoteVideo');
-    let roomId = "";
-
-    const servers = {
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-    };
-
-    async function joinRoom() {
-      roomId = roomInput.value;
-      if (!roomId) return alert("Enter a room ID");
-
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
-
-      peerConnection = new RTCPeerConnection(servers);
-      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-      peerConnection.ontrack = (event) => {
-        remoteVideo.srcObject = event.streams[0];
-      };
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit("ice-candidate", { roomId, candidate: event.candidate });
-        }
-      };
-
-      socket.emit("join-room", roomId);
-
-      socket.on("user-joined", async () => {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        socket.emit("offer", { roomId, sdp: offer });
-      });
-
-      socket.on("offer", async ({ sdp }) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit("answer", { roomId, sdp: answer });
-      });
-
-      socket.on("answer", async ({ sdp }) => {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-      });
-
-      socket.on("ice-candidate", ({ candidate }) => {
-        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      });
-    }
-
-    function leaveRoom() {
-      if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-      }
-
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-      }
-
-      localVideo.srcObject = null;
-      remoteVideo.srcObject = null;
-
-      alert("You have left the call.");
-      Optional: emit a socket event to notify the other peer
-      socket.emit("leave-room", roomId);
-    }
-  </script>
+  <script src="./script.js"></script>
 </body>
 </html>
