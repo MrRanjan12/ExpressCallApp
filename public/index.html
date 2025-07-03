@@ -3,77 +3,117 @@
 <head>
   <title>Vani.liveCall</title>
   <style>
-    body { font-family: sans-serif; text-align: center; }
-    video { width: 45%; margin: 10px; background: #000; }
-    button { margin: 5px; padding: 10px 20px; }
-  </style>
-</head>
-<body>
-   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       padding: 0;
-      background-color: #f2f2f2;
+      background: #f2f2f2;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      height: 100vh;
-      text-align: center;
     }
 
     .container {
-      background-color: #ffffff;
-      padding: 40px 30px;
+      background: white;
+      margin-top: 30px;
+      padding: 30px 20px;
       border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-      max-width: 400px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      width: 90%;
+      max-width: 800px;
     }
 
-    h1 {
-      color: #333333;
-      font-size: 26px;
-      margin-bottom: 10px;
+    h2 {
+      color: #333;
+      margin-bottom: 20px;
     }
 
-    p {
-      color: #777777;
+    input[type="text"] {
+      padding: 10px;
+      width: 60%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
       font-size: 16px;
     }
 
-    .spinner {
-      margin: 20px auto;
-      width: 40px;
-      height: 40px;
-      border: 4px solid #ccc;
-      border-top: 4px solid #3498db;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
+    .btn {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .join-btn {
+      background-color: #3498db;
+      color: white;
+    }
+
+    .join-btn:hover {
+      background-color: #2980b9;
+    }
+
+    .leave-btn {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    .leave-btn:hover {
+      background-color: #c0392b;
+    }
+
+    .videos {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    video {
+      width: 45%;
+      max-width: 320px;
+      border-radius: 10px;
+      background: black;
+    }
+
+    @media (max-width: 768px) {
+      .videos {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      video {
+        width: 80%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="spinner"></div>
-    <h1>We’ll Be Back Soon</h1>
-    <p>The application is currently under maintenance.<br>
-    Please check back later.</p>
+    <h2>Vani.liveCall</h2>
+    <input type="text" id="roomInput" placeholder="Enter Room ID" />
+    <div>
+      <button class="btn join-btn" onclick="joinRoom()">Join Room</button>
+      <button class="btn leave-btn" onclick="leaveRoom()">Leave Call</button>
+    </div>
+
+    <div class="videos">
+      <video id="localVideo" autoplay muted playsinline></video>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
   </div>
-</body>
-  <!-- <h2>WebRTC Call Test</h2>
-  <input type="text" id="roomInput" placeholder="Enter Room ID" />
-  <button onclick="joinRoom()">Join Room</button>
-  <br/><br/>
-  <video id="localVideo" autoplay muted></video>
-  <video id="remoteVideo" autoplay></video>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    const socket = io(); // default assumes same host
+    const socket = io(); // Connect to backend server
 
     let localStream;
     let peerConnection;
@@ -83,9 +123,7 @@
     let roomId = "";
 
     const servers = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }
-      ]
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
     };
 
     async function joinRoom() {
@@ -110,7 +148,7 @@
 
       socket.emit("join-room", roomId);
 
-      socket.on("user-joined", async (userId) => {
+      socket.on("user-joined", async () => {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         socket.emit("offer", { roomId, sdp: offer });
@@ -131,6 +169,25 @@
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       });
     }
-  </script> -->
+
+    function leaveRoom() {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+
+      localVideo.srcObject = null;
+      remoteVideo.srcObject = null;
+
+      alert("You have left the call.");
+      Optional: emit a socket event to notify the other peer
+      socket.emit("leave-room", roomId);
+    }
+  </script>
 </body>
 </html>
